@@ -33,6 +33,8 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+FastF1 cache folder will be created automatically on first run. If it is not created, you can manually create a folder named `.fastf1-cache` in the project root.
+
 ## Usage
 
 Run the main script and specify the year and round:

@@ -1,4 +1,4 @@
-from src.f1_data import get_race_telemetry, get_driver_colors, load_race_session
+from src.f1_data import get_race_telemetry, get_driver_colors, load_race_session, enable_cache
 from src.arcade_replay import run_arcade_replay
 import sys
 
@@ -6,6 +6,9 @@ def main(year=None, round_number=None, playback_speed=1):
 
   session = load_race_session(year, round_number)
   print(f"Loaded session: {session.event['EventName']} - {session.event['RoundNumber']}")
+
+  # Enable cache for fastf1
+  enable_cache()
 
   # Get the drivers who participated in the race
 
