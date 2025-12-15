@@ -46,6 +46,8 @@ def _process_single_driver(args):
     speed_all = []
     gear_all = []
     drs_all = []
+    throttle_all = []
+    brake_all = []
 
     total_dist_so_far = 0.0
 
@@ -67,6 +69,8 @@ def _process_single_driver(args):
         speed_kph_lap = lap_tel["Speed"].to_numpy()
         gear_lap = lap_tel["nGear"].to_numpy()
         drs_lap = lap_tel["DRS"].to_numpy()
+        throttle_lap = lap_tel["Throttle"].to_numpy() if "Throttle" in lap_tel.columns else np.zeros_like(speed_kph_lap)
+        brake_lap = lap_tel["Brake"].to_numpy() if "Brake" in lap_tel.columns else np.zeros_like(speed_kph_lap)
 
         # race distance = distance before this lap + distance within this lap
         race_d_lap = total_dist_so_far + d_lap
@@ -81,24 +85,26 @@ def _process_single_driver(args):
         speed_all.append(speed_kph_lap)
         gear_all.append(gear_lap)
         drs_all.append(drs_lap)
+        throttle_all.append(throttle_lap)
+        brake_all.append(brake_lap)
 
     if not t_all:
         return None
 
     # Concatenate all arrays at once for better performance
     all_arrays = [t_all, x_all, y_all, race_dist_all, rel_dist_all, 
-                  lap_numbers, tyre_compounds, speed_all, gear_all, drs_all]
+                  lap_numbers, tyre_compounds, speed_all, gear_all, drs_all, throttle_all, brake_all]
     
     t_all, x_all, y_all, race_dist_all, rel_dist_all, lap_numbers, \
-    tyre_compounds, speed_all, gear_all, drs_all = [np.concatenate(arr) for arr in all_arrays]
+    tyre_compounds, speed_all, gear_all, drs_all, throttle_all, brake_all = [np.concatenate(arr) for arr in all_arrays]
 
     # Sort all arrays by time in one operation
     order = np.argsort(t_all)
     all_data = [t_all, x_all, y_all, race_dist_all, rel_dist_all, 
-                lap_numbers, tyre_compounds, speed_all, gear_all, drs_all]
+                lap_numbers, tyre_compounds, speed_all, gear_all, drs_all, throttle_all, brake_all]
     
     t_all, x_all, y_all, race_dist_all, rel_dist_all, lap_numbers, \
-    tyre_compounds, speed_all, gear_all, drs_all = [arr[order] for arr in all_data]
+    tyre_compounds, speed_all, gear_all, drs_all, throttle_all, brake_all = [arr[order] for arr in all_data]
 
     print(f"Completed telemetry for driver: {driver_code}")
     
@@ -115,6 +121,8 @@ def _process_single_driver(args):
             "speed": speed_all,
             "gear": gear_all,
             "drs": drs_all,
+            "throttle": throttle_all,
+            "brake": brake_all,
         },
         "t_min": t_all.min(),
         "t_max": t_all.max(),
@@ -143,6 +151,62 @@ def get_driver_colors(session):
 def get_circuit_rotation(session):
     circuit = session.get_circuit_info()
     return circuit.rotation
+
+def get_lap_timing_data(session):
+    """Extract lap times, sector times, and grid positions for all drivers."""
+    laps = session.laps
+    results = session.results
+    
+    # Get grid positions (starting positions)
+    grid_positions = {}
+    for _, row in results.iterrows():
+        code = row.get("Abbreviation", "")
+        grid_pos = row.get("GridPosition", 0)
+        if code and not pd.isna(grid_pos):
+            grid_positions[code] = int(grid_pos)
+    
+    # Build lap timing dictionary keyed by driver code
+    lap_data = {}
+    
+    for driver_no in session.drivers:
+        driver_code = session.get_driver(driver_no).get("Abbreviation", "")
+        if not driver_code:
+            continue
+            
+        driver_laps = laps.pick_drivers(driver_no)
+        driver_lap_times = {}
+        
+        for _, lap in driver_laps.iterrows():
+            lap_num = int(lap["LapNumber"]) if not pd.isna(lap["LapNumber"]) else 0
+            
+            # Extract lap time (in seconds)
+            lap_time = None
+            if not pd.isna(lap["LapTime"]):
+                lap_time = lap["LapTime"].total_seconds()
+            
+            # Extract sector times
+            s1 = lap["Sector1Time"].total_seconds() if not pd.isna(lap.get("Sector1Time")) else None
+            s2 = lap["Sector2Time"].total_seconds() if not pd.isna(lap.get("Sector2Time")) else None
+            s3 = lap["Sector3Time"].total_seconds() if not pd.isna(lap.get("Sector3Time")) else None
+            
+            # Is this lap personal best?
+            is_pb = bool(lap.get("IsPersonalBest", False))
+            
+            driver_lap_times[lap_num] = {
+                "time": lap_time,
+                "s1": s1,
+                "s2": s2,
+                "s3": s3,
+                "is_pb": is_pb,
+                "compound": str(lap.get("Compound", "UNKNOWN")),
+            }
+        
+        lap_data[driver_code] = {
+            "grid_pos": grid_positions.get(driver_code, 0),
+            "laps": driver_lap_times,
+        }
+    
+    return lap_data
 
 def get_race_telemetry(session, session_type='R'):
 
@@ -228,12 +292,14 @@ def get_race_telemetry(session, session_type='R'):
             data["tyre"][order],
             data["speed"][order],
             data["gear"][order],
-            data["drs"][order]
+            data["drs"][order],
+            data["throttle"][order],
+            data["brake"][order]
         ]
         
         resampled = [np.interp(timeline, t_sorted, arr) for arr in arrays_to_resample]
         x_resampled, y_resampled, dist_resampled, rel_dist_resampled, lap_resampled, \
-        tyre_resampled, speed_resampled, gear_resampled, drs_resampled = resampled
+        tyre_resampled, speed_resampled, gear_resampled, drs_resampled, throttle_resampled, brake_resampled = resampled
  
         resampled_data[code] = {
             "t": timeline,
@@ -246,6 +312,8 @@ def get_race_telemetry(session, session_type='R'):
             "speed": speed_resampled,
             "gear": gear_resampled,
             "drs": drs_resampled,
+            "throttle": throttle_resampled,
+            "brake": brake_resampled,
         }
 
     # 4. Incorporate track status data into the timeline (for safety car, VSC, etc.)
@@ -332,6 +400,8 @@ def get_race_telemetry(session, session_type='R'):
                 "speed": float(d['speed'][i]),
                 "gear": int(d['gear'][i]),
                 "drs": int(d['drs'][i]),
+                "throttle": float(d['throttle'][i]),
+                "brake": float(d['brake'][i]),
             })
 
         # If for some reason we have no drivers at this instant
@@ -366,6 +436,8 @@ def get_race_telemetry(session, session_type='R'):
                 "speed": car['speed'],
                 "gear": car['gear'],
                 "drs": car['drs'],
+                "throttle": car['throttle'],
+                "brake": car['brake'],
             }
 
         weather_snapshot = {}
@@ -399,6 +471,10 @@ def get_race_telemetry(session, session_type='R'):
     if not os.path.exists("computed_data"):
         os.makedirs("computed_data")
 
+    # Get lap timing data (lap times, sectors, grid positions)
+    print("Extracting lap timing data...")
+    lap_timing_data = get_lap_timing_data(session)
+
     # Save using pickle (10-100x faster than JSON)
     with open(f"computed_data/{event_name}_{cache_suffix}_telemetry.pkl", "wb") as f:
         pickle.dump({
@@ -406,6 +482,7 @@ def get_race_telemetry(session, session_type='R'):
             "driver_colors": get_driver_colors(session),
             "track_statuses": formatted_track_statuses,
             "total_laps": int(max_lap_number),
+            "lap_timing": lap_timing_data,
         }, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     print("Saved Successfully!")
@@ -415,6 +492,7 @@ def get_race_telemetry(session, session_type='R'):
         "driver_colors": get_driver_colors(session),
         "track_statuses": formatted_track_statuses,
         "total_laps": int(max_lap_number),
+        "lap_timing": lap_timing_data,
     }
 
 
