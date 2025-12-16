@@ -283,23 +283,38 @@ def get_race_telemetry(session, session_type='R'):
         t_sorted = t[order]
         
         # Vectorize all resampling in one operation for speed
-        arrays_to_resample = [
+        # CONTINUOUS values use linear interpolation
+        continuous_arrays = [
             data["x"][order],
             data["y"][order],
             data["dist"][order],
             data["rel_dist"][order],
-            data["lap"][order],
-            data["tyre"][order],
             data["speed"][order],
-            data["gear"][order],
-            data["drs"][order],
             data["throttle"][order],
             data["brake"][order]
         ]
         
-        resampled = [np.interp(timeline, t_sorted, arr) for arr in arrays_to_resample]
-        x_resampled, y_resampled, dist_resampled, rel_dist_resampled, lap_resampled, \
-        tyre_resampled, speed_resampled, gear_resampled, drs_resampled, throttle_resampled, brake_resampled = resampled
+        resampled_continuous = [np.interp(timeline, t_sorted, arr) for arr in continuous_arrays]
+        x_resampled, y_resampled, dist_resampled, rel_dist_resampled, \
+        speed_resampled, throttle_resampled, brake_resampled = resampled_continuous
+        
+        # DISCRETE values use step/forward-fill interpolation (no fractional values)
+        # This prevents incorrect lap numbers at timeline edges
+        discrete_arrays = {
+            "lap": data["lap"][order],
+            "tyre": data["tyre"][order],
+            "gear": data["gear"][order],
+            "drs": data["drs"][order],
+        }
+        
+        # Forward-fill: find the index of the last known value before each timeline point
+        idxs = np.searchsorted(t_sorted, timeline, side='right') - 1
+        idxs = np.clip(idxs, 0, len(t_sorted) - 1)
+        
+        lap_resampled = discrete_arrays["lap"][idxs]
+        tyre_resampled = discrete_arrays["tyre"][idxs]
+        gear_resampled = discrete_arrays["gear"][idxs]
+        drs_resampled = discrete_arrays["drs"][idxs]
  
         resampled_data[code] = {
             "t": timeline,

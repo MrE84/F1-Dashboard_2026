@@ -105,13 +105,15 @@ export default function ReplayPage() {
     const [showWeatherOverlay, setShowWeatherOverlay] = useState(true);
     const [driverInfoPanelPos, setDriverInfoPanelPos] = useState({ x: 32, y: 112 }); // bottom-left position
     const [isDragging, setIsDragging] = useState(false);
-    const [showTimingBoard, setShowTimingBoard] = useState(false);
+
 
     // Team Radio state
     const [currentRadio, setCurrentRadio] = useState<TeamRadioClip | null>(null);
     const [radioEnabled, setRadioEnabled] = useState(true);
     const [radioVolume, setRadioVolume] = useState(0.7);
     const [hasInteracted, setHasInteracted] = useState(false); // Track if user has interacted (for autoplay)
+    const [commentaryAudioSrc, setCommentaryAudioSrc] = useState<string | null>(null);
+
 
     const dragOffset = useRef({ x: 0, y: 0 });
 
@@ -123,6 +125,8 @@ export default function ReplayPage() {
     // Team Radio refs
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const playedRadioClipsRef = useRef<Set<number>>(new Set()); // Track which clips have played (by index)
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
 
     // Load race data
     useEffect(() => {
@@ -595,6 +599,15 @@ export default function ReplayPage() {
         e.preventDefault();
     };
 
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            setCommentaryAudioSrc(url);
+        }
+    };
+
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-900 to-black">
@@ -661,16 +674,48 @@ export default function ReplayPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Timing Board Toggle */}
-                    <button
-                        onClick={() => setShowTimingBoard(!showTimingBoard)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${showTimingBoard
-                            ? 'bg-red-600 text-white'
-                            : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700 hover:text-white'
-                            }`}
-                    >
-                        Timing
-                    </button>
+
+                    {/* Commentary Audio Upload */}
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            accept="audio/*"
+                            className="hidden"
+                        />
+                        {!commentaryAudioSrc ? (
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                                title="Upload Custom Commentary Audio"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                                Add Commentary
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-2 bg-zinc-800/50 rounded-lg pr-2 overflow-hidden h-8">
+                                <audio
+                                    controls
+                                    src={commentaryAudioSrc}
+                                    className="h-8 w-60 outline-none"
+                                    style={{ filter: 'invert(1) grayscale(1)' }}
+                                />
+                                <button
+                                    onClick={() => setCommentaryAudioSrc(null)}
+                                    className="p-1 hover:text-red-500 text-zinc-500"
+                                    title="Remove commentary"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
 
                     {/* Team Radio Toggle */}
                     <button
@@ -1003,74 +1048,122 @@ export default function ReplayPage() {
                     </div>
                 </div>
 
-                {/* Leaderboard Sidebar - Premium Glass Look */}
-                <div className="w-72 bg-black/40 backdrop-blur-xl border-l border-white/5 overflow-y-auto shrink-0">
-                    <div className="p-4 border-b border-white/5 sticky top-0 bg-black/60 backdrop-blur-xl z-10">
-                        <h2 className="text-sm font-bold text-white tracking-wider uppercase">Live Standings</h2>
+                {/* Right Panel: Timing Board (always visible) */}
+                <div className="w-[520px] bg-black/40 backdrop-blur-xl border-l border-white/5 overflow-y-auto shrink-0 flex flex-col">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0 sticky top-0 bg-black/80 backdrop-blur-xl z-10">
+                        <h2 className="text-sm font-bold text-white tracking-wider uppercase">Live Timing — Lap {currentFrame?.lap || 1}</h2>
                     </div>
 
-                    <div className="p-2">
-                        {sortedDrivers.map(([code, pos], index) => {
-                            const driver = raceData.drivers.find(d => d.code === code);
-                            const color = raceData.driverColors[code] || [128, 128, 128];
-                            const tyre = TYRE_COMPOUNDS[Math.round(pos.tyre)] || { name: '?', color: '#888', bg: 'bg-zinc-500' };
-                            const isSelected = selectedDriver === code;
-                            const isTop3 = index < 3;
+                    {/* Timing Table */}
+                    <div className="flex-1 overflow-auto">
+                        <table className="w-full text-xs">
+                            <thead className="text-[9px] text-zinc-500 uppercase sticky top-0 bg-zinc-900/95 backdrop-blur">
+                                <tr>
+                                    <th className="p-1.5 text-left w-6">P</th>
+                                    <th className="p-1.5 text-left">Driver</th>
+                                    <th className="p-1.5 text-right">Last</th>
+                                    <th className="p-1.5 text-right">Best</th>
+                                    <th className="p-1.5 text-right">Int</th>
+                                    <th className="p-1.5 text-right">Gap</th>
+                                    <th className="p-1.5 text-center">Tyre</th>
+                                    <th className="p-1.5 text-center">+/-</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedDrivers.map(([code, pos], idx) => {
+                                    const lapData = raceData.lapTiming?.[code];
+                                    const currentLap = currentFrame?.lap || 1;
+                                    const lastLapData = lapData?.laps?.[currentLap - 1];
 
-                            return (
-                                <div
-                                    key={code}
-                                    onClick={() => setSelectedDriver(isSelected ? null : code)}
-                                    className={`
-                                        mb-1 rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all
-                                        ${isSelected
-                                            ? 'bg-white/10 border border-white/20 shadow-lg'
-                                            : 'hover:bg-white/5 border border-transparent'}
-                                        ${isTop3 && !isSelected ? 'bg-gradient-to-r from-white/5 to-transparent' : ''}
-                                    `}
-                                >
-                                    {/* Position */}
-                                    <div className={`
-                                        w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold
-                                        ${index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                                            index === 1 ? 'bg-zinc-400/20 text-zinc-300' :
-                                                index === 2 ? 'bg-amber-600/20 text-amber-500' :
-                                                    'text-zinc-500'}
-                                    `}>
-                                        {index + 1}
-                                    </div>
+                                    // Find best lap time
+                                    let bestLapTime: number | null = null;
+                                    if (lapData?.laps) {
+                                        Object.values(lapData.laps).forEach((l) => {
+                                            if (l.time && (bestLapTime === null || l.time < bestLapTime)) {
+                                                bestLapTime = l.time;
+                                            }
+                                        });
+                                    }
 
-                                    {/* Team color bar */}
-                                    <div
-                                        className="w-1 h-8 rounded-full"
-                                        style={{
-                                            backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
-                                            boxShadow: isSelected ? `0 0 10px rgb(${color[0]}, ${color[1]}, ${color[2]})` : 'none'
-                                        }}
-                                    />
+                                    const gridPos = lapData?.grid_pos || 0;
+                                    const posDiff = gridPos - pos.position;
+                                    const color = raceData.driverColors[code] || [128, 128, 128];
 
-                                    {/* Driver info */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-sm text-white">{code}</div>
-                                        <div className="text-[10px] text-zinc-500 truncate">{driver?.team}</div>
-                                    </div>
+                                    // Calculate gap/interval
+                                    const leaderLapData = raceData.lapTiming?.[sortedDrivers[0]?.[0]]?.laps?.[currentLap - 1];
+                                    const gapToLeader = lastLapData?.time && leaderLapData?.time
+                                        ? lastLapData.time - leaderLapData.time
+                                        : 0;
 
-                                    {/* Tyre compound */}
-                                    <div
-                                        className="w-4 h-4 rounded-full shrink-0 ring-2 ring-zinc-800"
-                                        style={{ backgroundColor: tyre.color }}
-                                        title={tyre.name}
-                                    />
+                                    const carAheadCode = idx > 0 ? sortedDrivers[idx - 1]?.[0] : null;
+                                    const carAheadLapData = carAheadCode ? raceData.lapTiming?.[carAheadCode]?.laps?.[currentLap - 1] : null;
+                                    const interval = lastLapData?.time && carAheadLapData?.time
+                                        ? lastLapData.time - carAheadLapData.time
+                                        : 0;
 
-                                    {/* Speed when selected */}
-                                    {isSelected && (
-                                        <div className="text-xs text-white font-mono font-bold">
-                                            {Math.round(pos.speed)}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                    const formatLapTime = (seconds: number | null) => {
+                                        if (!seconds) return '—';
+                                        const mins = Math.floor(seconds / 60);
+                                        const secs = (seconds % 60).toFixed(3);
+                                        return `${mins}:${secs.padStart(6, '0')}`;
+                                    };
+
+                                    const tyre = TYRE_COMPOUNDS[Math.round(pos.tyre || 3)];
+                                    const isSelected = selectedDriver === code;
+
+                                    return (
+                                        <tr
+                                            key={code}
+                                            className={`border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-white/10' : ''}`}
+                                            onClick={() => setSelectedDriver(code === selectedDriver ? null : code)}
+                                        >
+                                            <td className={`p-1.5 font-bold ${idx === 0 ? 'text-yellow-400' :
+                                                idx === 1 ? 'text-zinc-300' :
+                                                    idx === 2 ? 'text-amber-500' : 'text-zinc-500'
+                                                }`}>
+                                                {pos.position}
+                                            </td>
+                                            <td className="p-1.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div
+                                                        className="w-0.5 h-4 rounded-full"
+                                                        style={{ backgroundColor: `rgb(${color.join(',')})` }}
+                                                    />
+                                                    <span className="font-bold text-white">{code}</span>
+                                                </div>
+                                            </td>
+                                            <td className={`p-1.5 text-right font-mono ${lastLapData?.is_pb ? 'text-green-400' : 'text-white'}`}>
+                                                {formatLapTime(lastLapData?.time || null)}
+                                            </td>
+                                            <td className="p-1.5 text-right font-mono text-purple-400">
+                                                {formatLapTime(bestLapTime)}
+                                            </td>
+                                            <td className="p-1.5 text-right font-mono text-yellow-400">
+                                                {idx === 0 ? '—' : interval ? `+${Math.abs(interval).toFixed(1)}` : '—'}
+                                            </td>
+                                            <td className="p-1.5 text-right font-mono text-red-400">
+                                                {idx === 0 ? 'LDR' : gapToLeader ? `+${Math.abs(gapToLeader).toFixed(1)}` : '—'}
+                                            </td>
+                                            <td className="p-1.5 text-center">
+                                                <div
+                                                    className="w-4 h-4 rounded-full mx-auto ring-1 ring-zinc-700"
+                                                    style={{ backgroundColor: tyre?.color || '#fff' }}
+                                                    title={tyre?.name || 'Unknown'}
+                                                />
+                                            </td>
+                                            <td className="p-1.5 text-center">
+                                                {posDiff !== 0 && (
+                                                    <span className={`text-[10px] font-bold ${posDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {posDiff > 0 ? `+${posDiff}` : posDiff}
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1137,161 +1230,7 @@ export default function ReplayPage() {
                 )
             }
 
-            {/* Timing Board Slide-out Panel */}
-            {showTimingBoard && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-zinc-900/95 border border-white/10 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-                            <h2 className="text-xl font-bold text-white">Live Timing - Lap {currentFrame?.lap || 1}</h2>
-                            <button
-                                onClick={() => setShowTimingBoard(false)}
-                                className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-                            >
-                                ✕
-                            </button>
-                        </div>
 
-                        {/* Timing Table */}
-                        <div className="flex-1 overflow-auto p-4">
-                            <table className="w-full text-sm">
-                                <thead className="text-[10px] text-zinc-500 uppercase sticky top-0 bg-zinc-900">
-                                    <tr>
-                                        <th className="p-2 text-left w-8">Pos</th>
-                                        <th className="p-2 text-left">Driver</th>
-                                        <th className="p-2 text-center">DRS</th>
-                                        <th className="p-2 text-right">Last Lap</th>
-                                        <th className="p-2 text-right">Best Lap</th>
-                                        <th className="p-2 text-right">Interval</th>
-                                        <th className="p-2 text-right">Gap</th>
-                                        <th className="p-2 text-right">S1</th>
-                                        <th className="p-2 text-right">S2</th>
-                                        <th className="p-2 text-right">S3</th>
-                                        <th className="p-2 text-center">Tyre</th>
-                                        <th className="p-2 text-center">Diff</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedDrivers.map(([code, pos], idx) => {
-                                        const lapData = raceData.lapTiming?.[code];
-                                        const currentLap = currentFrame?.lap || 1;
-                                        const lastLapData = lapData?.laps?.[currentLap - 1];
-
-                                        // Find best lap time
-                                        let bestLapTime: number | null = null;
-                                        if (lapData?.laps) {
-                                            Object.values(lapData.laps).forEach((l) => {
-                                                if (l.time && (bestLapTime === null || l.time < bestLapTime)) {
-                                                    bestLapTime = l.time;
-                                                }
-                                            });
-                                        }
-
-                                        const gridPos = lapData?.grid_pos || 0;
-                                        const posDiff = gridPos - pos.position;
-                                        const color = raceData.driverColors[code] || [128, 128, 128];
-
-                                        // Calculate gap/interval from lap time differences (simplified)
-                                        const leaderLapData = raceData.lapTiming?.[sortedDrivers[0]?.[0]]?.laps?.[currentLap - 1];
-                                        const gapToLeader = lastLapData?.time && leaderLapData?.time
-                                            ? lastLapData.time - leaderLapData.time
-                                            : 0;
-
-                                        // Calculate interval to car ahead
-                                        const carAheadCode = idx > 0 ? sortedDrivers[idx - 1]?.[0] : null;
-                                        const carAheadLapData = carAheadCode ? raceData.lapTiming?.[carAheadCode]?.laps?.[currentLap - 1] : null;
-                                        const interval = lastLapData?.time && carAheadLapData?.time
-                                            ? lastLapData.time - carAheadLapData.time
-                                            : 0;
-
-                                        const formatLapTime = (seconds: number | null) => {
-                                            if (!seconds) return '—';
-                                            const mins = Math.floor(seconds / 60);
-                                            const secs = (seconds % 60).toFixed(3);
-                                            return `${mins}:${secs.padStart(6, '0')}`;
-                                        };
-
-                                        const formatSector = (seconds: number | null) => {
-                                            if (!seconds) return '—';
-                                            return seconds.toFixed(3);
-                                        };
-
-                                        const tyre = TYRE_COMPOUNDS[Math.round(pos.tyre || 3)];
-
-                                        return (
-                                            <tr
-                                                key={code}
-                                                className={`border-b border-white/5 hover:bg-white/5 transition-colors ${selectedDriver === code ? 'bg-white/10' : ''
-                                                    }`}
-                                                onClick={() => setSelectedDriver(code === selectedDriver ? null : code)}
-                                            >
-                                                <td className={`p-2 font-bold ${idx === 0 ? 'text-yellow-400' :
-                                                    idx === 1 ? 'text-zinc-300' :
-                                                        idx === 2 ? 'text-amber-500' : 'text-zinc-500'
-                                                    }`}>
-                                                    {pos.position}
-                                                </td>
-                                                <td className="p-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-1 h-5 rounded-full"
-                                                            style={{ backgroundColor: `rgb(${color.join(',')})` }}
-                                                        />
-                                                        <span className="font-bold text-white">{code}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-2 text-center">
-                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${pos.drs >= 10 ? 'bg-green-500/20 text-green-400' : 'text-zinc-600'
-                                                        }`}>
-                                                        {pos.drs >= 10 ? 'ON' : 'OFF'}
-                                                    </span>
-                                                </td>
-                                                <td className={`p-2 text-right font-mono ${lastLapData?.is_pb ? 'text-green-400' : 'text-white'
-                                                    }`}>
-                                                    {formatLapTime(lastLapData?.time || null)}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-purple-400">
-                                                    {formatLapTime(bestLapTime)}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-yellow-400">
-                                                    {idx === 0 ? '—' : interval ? `+${Math.abs(interval).toFixed(3)}s` : '—'}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-red-400">
-                                                    {idx === 0 ? 'Leader' : gapToLeader ? `+${Math.abs(gapToLeader).toFixed(3)}s` : '—'}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-zinc-400">
-                                                    {formatSector(lastLapData?.s1 || null)}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-zinc-400">
-                                                    {formatSector(lastLapData?.s2 || null)}
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-zinc-400">
-                                                    {formatSector(lastLapData?.s3 || null)}
-                                                </td>
-                                                <td className="p-2 text-center">
-                                                    <div
-                                                        className="w-5 h-5 rounded-full mx-auto ring-2 ring-zinc-800"
-                                                        style={{ backgroundColor: tyre?.color || '#fff' }}
-                                                        title={tyre?.name || 'Unknown'}
-                                                    />
-                                                </td>
-                                                <td className="p-2 text-center">
-                                                    {posDiff !== 0 && (
-                                                        <span className={`text-xs font-bold ${posDiff > 0 ? 'text-green-400' : 'text-red-400'
-                                                            }`}>
-                                                            {posDiff > 0 ? `+${posDiff}` : posDiff}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div >
     );
 }

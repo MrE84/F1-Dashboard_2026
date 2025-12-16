@@ -1,0 +1,172 @@
+Introduction
+I built this Python project for Formula 1
+fans, and it's racked up over 1 million views on social media.
+So I thought, I'd make this video
+to introduce you to the project, explain what it is, how I built it,
+and where you can download it so that you can have a go for yourself.
+Let's get into it.
+What the project does
+F1 Race Replay is a Python application used for visualizing Formula 1 telemetry
+and replaying race events from above, so you can get a complete view
+of what's happening in the race.
+It also allows you to review qualifying data and car telemetry.
+So I will explain that in this video as well.
+It's an open source project, meaning that you can download
+the code and make changes to it and use it for whatever you like.
+All I ask is that if you do use the project publicly
+for whatever purpose that you want to use it for, please
+you leave a link back to the original project
+so that you can credit both myself and also the other contributors.
+How to download and set it up
+You can download the code by visiting the GitHub repository,
+and then either running git clone in your terminal
+or downloading it as a zip file, and then unpacking it as normal.
+You’ll need to open the code inside of your favourite code editor,
+and then set up a Python virtual environment and install the dependencies.
+This is how you set up an environment on a Mac, but the process might differ
+slightly if you're using Windows or Linux or whatever you want to use.
+To run the tool, you'll need to run Python main.py and then use the year
+and round arguments to select the race that you want to watch.
+You can check the round number by visiting the F1 website,
+and then going on to their schedule and having a look at the round number
+relevant to the race that you want to find, if that makes sense.
+When you run that command,
+the Python application will start and it will need to go and preprocess
+all of that data to get all the telemetry synced up and do all the magic
+that I've coded to make it do what it needs to do,
+which will take maybe a minute or two.
+So do be patient.
+But then once it's ready, it will show the interface.
+Feature walkthrough
+So now that it's running, let me give you a quick walkthrough of the features.
+As you can see, the race that we've chosen is now being run on screen.
+And each of these dots is a driver going around the track.
+We can pause, speed up, slow down the replay using the spacebar and arrow keys.
+And we can also go frame by frame using the left and right arrow keys.
+Oh, and we can also press R to restart the race On the right here
+we have the leaderboard which currently displays
+the order of the drivers during the race, as well as their tyre compounds
+that they are currently using.
+If you click on a driver,
+you will see more insights into their telemetry, such as the speed,
+gear that they are currently in, whether or not they have DRS open, etc..
+In the top left we can see the lap number that we're currently on, the length
+of the race so far and the speed that we are watching the race at.
+And just below that we have the weather data, which changes throughout the race.
+Oh, and finally when we get a yellow flag, red flag, safety car, virtual safety
+car, the track changes colour and we get a nice bit of text
+in the top left here telling us.
+Qualifying mode
+Since writing the script for this video, I have also added a new feature
+that shows qualifying.
+It allows you to review the telemetry that's coming off of the cars,
+so that you can see exactly what's happening in a driver’s qualifying lap.
+All we have to do to access this
+feature is past the qualifying argument when you run the Python project
+and instead of the race view appearing, you get this leaderboard screen.
+Using this leaderboard screen, you can then select the driver
+and their lap time from the different qualifying segments.
+For example, this is Lando Norris’s qualifying lap for Abu Dhabi 2025.
+The telemetry is being animated onto the screen as the car
+goes around the track, with this line representing his speed,
+this one is the gear changes and these two are throttle and braking.
+So this tool gives you a pretty decent insight into what's happening in the race.
+But how does it work?
+How it works under the hood
+The entire project is built using Python, and as of today,
+the only data source is the FastF1 Python package.
+If you haven't heard of it before, FastF1 is a fantastic free Python package
+that enables you to access tons of F1 data
+like driver info, session results, telemetry and much, much more.
+So if you're an F1 fan working with Python,
+I definitely recommend that you check out the FastF1 Python package,
+just maybe for a hobby project or who knows what you will build.
+Now, in order to display the drivers all going around the track all synced up
+together, I have had to spend a lot of time writing functions
+for importing the data and syncing it up to the same timeline,
+but without the Python package sitting in front of its source API,
+this would have been a much
+more complicated process, so I'm very grateful to use that package.
+Now for the interface,
+we're using the Arcade Python package, which is primarily meant for games,
+but is actually a really good solution if you want to create
+an animated sequence or animated interface like this one here.
+I did initially use matplotlib, but it didn't have that
+spark, that fancy feeling when I rendered the video.
+I think we can all agree that the Arcade version is better.
+Community contributions
+Now, while I do want to point out that the initial versions
+of this project were built by me, since then we've added a lot of features,
+and because it's open source, a lot of people have contributed
+their own work to it.
+For example, the weather feature was written
+by this developer, the lap number was written by this person,
+and the window resize feature was written by this developer.
+There are a few other contributors that I haven't named,
+but if you go into the contributors.md file in the open source repository,
+you'll be able to see all of them credited for the work that they have done.
+And to anyone else that contributes to the project, thank you very much.
+A lot of people have been asking me about the future of this project,
+and before I get into that, I just want to say that I had no idea
+that it would actually blow up to the scale that it has done.
+Future roadmap
+with any of my other projects, I would simply build a new feature.
+If I wanted to add a new feature, add it to the public repository, and that's it.
+But with the amount of public interest that this project has received,
+I think it's only right
+that I do it properly by creating much more of a defined roadmap
+so that other developers can get involved and help to build features
+without necessarily straying too far from what I want the project to be.
+ultimately the goal here is to build
+the best data insights tool that we possibly can for Formula 1 fans
+so that they can explore the data behind their favourite sport.
+This means that every single feature needs to achieve two goals, one delivering
+as much data
+as possible around that specific metric that we're trying to communicate,
+and two being really easy to understand and digestible
+if you're someone who maybe isn't too technical,
+but wants to learn more about the data behind Formula 1.
+So here are the primary goals that I have for the next few weeks of developing
+this project.
+First, implementing a graphical user interface
+that allows the user to be able to find the specific race that they want to watch
+and watch the specific session without having to go onto the F1 website,
+look for the round number, and then put that into the terminal
+to run a command, which then launches a Python application.
+Even just talking about it, it sounds like a terrible user experience.
+So I really need to improve that.
+Next adding support for qualifying and practice sessions.
+Now you're probably thinking, Tom, you've already shown us qualifying sessions
+in this video.
+Well, I wrote this roadmap before I built that feature.
+And then I thought, well,
+I need to include it in this video because it's a pretty cool feature.
+So that's already one item checked partially off of the roadmap.
+Although I do think there are many things
+that I can do to improve that feature, and make it a bit more informative
+in terms of adding in sector times or for example, comparison tools.
+Which brings me on to the next point.
+In order to measure a driver's
+performance, as I said earlier, you really do need to be able
+to compare them with another driver or another lap time that they have done.
+So comparison tools are essential for this kind of project,
+allowing you to look at the telemetry
+that's coming off of, say, Lewis Hamilton's car and Charles Leclerc’s car
+and seeing well, is Charles braking a little bit earlier.
+Is Lewis maybe up shifting a little bit earlier?
+And where the performance is being or where lap time is being gained or lost?
+As I said earlier, the intention behind this project is to give the user
+as much insight into the data behind Formula 1 as we possibly can.
+Basically, like giving the user their own pit wall at home.
+So I have so many ideas for features and I'm sure that you do too.
+How to contribute
+If you would like to get involved with the project,
+or try building out one of these features that I've listed,
+or maybe even a feature that you have an idea for yourself,
+please do download the code, make some changes, and maybe
+even submit a pull request to hopefully see your code in the main branch.
+Outro
+So I hope you've enjoyed this deeper dive into the F1 Race
+Replay project, and I hope you're excited to see how the project progresses.
+If you are, please do follow me on my other channels
+to keep up to date with everything that's happening.
